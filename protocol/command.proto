@@ -1,0 +1,293 @@
+// NOTE: The file name is used by all clients, so renaming the file requires the updates on all client code base.
+syntax = "proto3";
+
+option go_package = "./;protocol";
+
+message Error {
+  enum ErrorCode {
+    FEED_NOT_EXIST = 0;
+    WRONG_FEED_INSTANCE = 2;
+    MISSING_STATE       = 3;
+    ALREADY_IN_OTHER_FEED = 4;
+    INVALID_COMMAND     = 5;
+    NOT_SUPPORTED_YET      = 6;
+    PROXY_ERROR         = 7;
+    FEED_INFO_DB_ERROR    = 8;
+    UNAUTHORIZED       = 9;
+    NOT_SUBSCRIBED_FEED   = 10;
+    MISSING_FIELDS = 11;
+    NOT_JOIN_FEED = 12;
+    INTERNODE_TIMEOUT = 13;
+    REQUEST_TIMEOUT = 14;
+  }
+  ErrorCode code = 1;
+  string message = 2;
+  bool temporary = 3;
+}
+
+message Feed {
+    string account = 1;
+    string kind = 2;
+    bytes key = 3;
+}
+
+message Command {
+  // seq id
+  uint32 id = 1;
+  enum MethodType {
+    CONNECT = 0;
+    SUBSCRIBE = 1;
+    UNSUBSCRIBE = 2;
+    PUBLISH = 3;
+    JOIN = 4;
+    LEAVE = 5;
+    PING = 6;
+    PRESENCE = 7; // update presence
+    FEED_INFO = 8; // get feed info
+    DISCONNECT = 9;
+    DELETE_FEED = 10;  // used by avatar server internally.
+    KICK = 11;
+    MODERATOR = 12;
+  }
+  MethodType method = 2;
+  Feed feed = 3;
+  ConnectRequest connect = 4;
+  SubscribeRequest subscribe = 5;
+  UnsubscribeRequest unsubscribe = 6;
+  PublishRequest publish = 7;
+  JoinRequest join = 8;
+  LeaveRequest leave = 9;
+  DisconnectRequest disconnect = 10;
+  PingRequest ping = 11;
+  PresenceRequest presence = 12;
+  FeedInfoRequest feedInfo = 13;
+  KickRequest kick = 14;
+  ModeratorRequest moderator = 15;
+}
+
+message Reply {
+  uint32 id = 1;
+  Error error = 2;
+  Push push = 4;
+  ConnectResult connect = 5;
+  SubscribeResult subscribe = 6;
+  UnsubscribeResult unsubscribe = 7;
+  PublishResult publish = 8;
+  JoinResult join = 9;
+  LeaveResult leave = 10;
+  DisconnectResult disconnect = 11;
+  PingResult ping = 12;
+  PresenceResult presence = 13;
+  FeedInfoResult feedInfo = 14;
+  KickResult kick = 15;
+  ModeratorResult moderator = 16;
+}
+
+// Push can be sent to a client as part of Reply in case of bidirectional transport or
+// without additional wrapping in case of unidirectional transports.
+message Push {
+  enum PushType {
+    PUBLICATION = 0;
+    JOIN = 1;
+    LEAVE = 2;
+    SUBSCRIBE_ERROR = 3;
+    PRESENCE = 4;
+    FEED_ERROR = 5;
+  }
+  PushType type = 1;
+  Feed feed = 2;
+
+  // not using oneof here due to JSON interoperability concerns.
+  Publication pub = 3;
+  Join join = 4;
+  Leave leave = 5;
+  Presence presence = 6;
+}
+
+message ClientInfo {
+  string account = 1;
+  // This field is unique.
+  // An account may use multiple devices concurrently and each combination of (device, IP) is considered as a client.
+  string deviceId = 2;
+  uint32 clientId = 3;
+  bool isBot = 4;
+}
+
+message AudioData {
+  enum Codec {
+    OPUS = 0;
+    AAC = 1;
+  }
+  Codec codec = 1;
+  repeated bytes audioData = 2;
+}
+
+message Publication {
+  int64 timestamp = 1; // in ms
+  repeated bytes unityData = 2;
+  AudioData audioData = 3;
+  ClientInfo info = 4;
+  string avatarCommand = 5;
+}
+
+message Join {
+  ClientInfo info = 1;
+  Presence presence = 2;
+}
+
+message Leave {
+  ClientInfo info = 1;
+}
+
+message Unsubscribe {
+  uint32 code = 2;
+  string reason = 3;
+}
+
+message Subscribe {
+}
+
+message Message {
+  bytes data = 1;
+}
+
+message Presence {
+  ClientInfo info = 1;
+  string avatarUrl = 2;
+  string avatarBackgroundImageUrl = 3;
+  string avatarForegroundImageUrl = 4;
+  bytes metadata = 5;
+  JoinerState state = 6;
+  repeated string moodKeys = 7;
+  string idleAnimationKey = 8;
+  bool isCalling = 9;
+  map<string, string> assets = 10;
+}
+
+message ConnectRequest {
+  string token = 1;
+  bytes data = 2;
+}
+
+message ConnectResult {
+}
+
+message SubscribeRequest {
+}
+
+message SubscribeResult {
+  FeedInfo info = 1;
+  ClientInfo client = 2;
+  Feed feed = 3; // exist if error happened
+}
+
+message UnsubscribeRequest {
+}
+
+message UnsubscribeResult {
+  Feed feed = 1;
+  ClientInfo info = 2;
+}
+
+message PublishRequest {
+  int64 timestamp = 1; // in ms
+  repeated bytes unityData = 2;
+  AudioData audioData = 3;
+  string avatarCommand = 4;
+}
+
+message PublishResult {
+
+}
+
+message JoinRequest {
+  string avatarUrl = 1;
+  string avatarBackgroundImageUrl = 2;
+  string avatarForegroundImageUrl = 3;
+  bytes metadata = 4;
+  repeated string moodKeys = 5;
+  string idleAnimationKey = 6;
+}
+
+message JoinResult {
+  Feed feed = 1;
+  ClientInfo info = 2;
+  FeedInfo feedInfo = 3;
+}
+
+message LeaveRequest {
+}
+message LeaveResult {
+  Feed feed = 1;
+  ClientInfo info = 2;
+}
+
+message DisconnectRequest {
+
+}
+message DisconnectResult {
+}
+
+message PingRequest {}
+message PingResult {}
+
+message PresenceRequest {
+  string avatarUrl = 1;
+  string avatarBackgroundImageUrl = 2;
+  string avatarForegroundImageUrl = 3;
+  bytes metadata = 4;
+  repeated string moodKeys = 5;
+  string idleAnimationKey = 6;
+  bool isCalling = 7;
+  map<string, string> assets = 8;
+}
+
+message PresenceResult {
+}
+
+message FeedInfoRequest {
+}
+
+message FeedInfoResult {
+  FeedInfo info = 1;
+}
+
+message KickRequest {
+  uint32 clientId = 1;
+}
+
+message KickResult {
+}
+
+message ModeratorRequest {
+  uint32 clientId = 1;
+  JoinerState state = 2;
+}
+
+message ModeratorResult {
+}
+
+enum JoinerState {
+  NORMAL = 0;
+  MUTE = 1;
+  KICK = 2;
+}
+
+message Joiner {
+  string avatarUrl = 1;
+  ClientInfo info = 2;
+  string avatarBackgroundImageUrl = 3;
+  string avatarForegroundImageUrl = 4;
+  bytes metadata = 5;
+  JoinerState state = 6;
+  repeated string moodKeys = 7;
+  string idleAnimationKey = 8;
+  bool isCalling = 9;
+  map<string, string> assets = 10;
+}
+
+message FeedInfo {
+  Feed feed = 1;
+  // clientId -> joiner
+  map<uint32, Joiner> joiners = 2;
+}
